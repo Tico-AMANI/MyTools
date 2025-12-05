@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>中国色数字时钟 · 双触发居中搜索</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      color: white;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      text-align: center;
+      transition: background-color 0.4s ease;
+    }
+
+    /* 🔝 顶部控制 */
+    .top-bar {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 10px;
+      z-index: 1000;
+    }
+    .top-bar button {
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .top-bar button:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* ⏰ 主时钟 */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 0 20px;
+      position: relative;
+    }
+    .clock-container {
+      padding: 30px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(6px);
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+      max-width: 90vw;
+      z-index: 10;
+    }
+    .time { font-size: 5rem; font-weight: 700; letter-spacing: 3px; margin-bottom: 12px; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    .date { font-size: 1.6rem; opacity: 0.95; }
+
+    /* 🔍 中央触发按钮（始终显示） */
+    #triggerSearchBtn {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 30px;
+      padding: 8px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+      z-index: 20;
+      transition: background 0.2s;
+    }
+    #triggerSearchBtn:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    /* 🔍 居中搜索面板（覆盖层） */
+    #bingSearchPanel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 3000;
+    }
+    #bingSearchPanel.active {
+      display: flex;
+    }
+    .search-box {
+      display: flex;
+      gap: 10px;
+      padding: 20px;
+      background: rgba(20, 25, 40, 0.95);
+      border-radius: 24px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      max-width: 600px;
+      width: 90%;
+    }
+    .search-box input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid #555;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      font-size: 1.1rem;
+    }
+    .search-box input::placeholder { color: #aaa; }
+    .search-box button {
+      padding: 12px 20px;
+      background: #1661ab;
+      color: white;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: bold;
+    }
+
+    /* 🎨 色卡面板 */
+    #colorPanel {
+      position: fixed;
+      bottom: -400px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 600px;
+      background: rgba(10, 15, 30, 0.92);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5);
+      z-index: 2000;
+      transition: bottom 0.4s ease;
+    }
+    #colorPanel.active { bottom: 20px; }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .close-btn {
+      background: none; border: none; color: #aaa; font-size: 1.4rem; cursor: pointer;
+    }
+    .color-presets {
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 15px;
+    }
+    .color-dot {
+      width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+      border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+      transition: transform 0.2s;
+    }
+    .color-dot:hover { transform: scale(1.25); }
+    .custom-input {
+      display: flex; gap: 10px; justify-content: center;
+    }
+    .custom-input input {
+      padding: 8px 12px; width: 120px; border: 1px solid #555;
+      border-radius: 6px; background: rgba(255,255,255,0.1); color: white;
+    }
+    .custom-input button {
+      padding: 8px 14px; background: #1661ab; color: white; border: none; border-radius: 6px; cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+      .time { font-size: 3.8rem; }
+      .date { font-size: 1.3rem; }
+      .color-dot { width: 34px; height: 34px; }
+      #triggerSearchBtn { bottom: 60px; font-size: 0.95rem; padding: 7px 18px; }
+    }
+    @media (max-width: 480px) {
+      .time { font-size: 2.8rem; }
+      .date { font-size: 1.1rem; }
+      .color-dot { width: 30px; height: 30px; }
+      .search-box { flex-direction: column; }
+      .search-box input, .search-box button { width: 100%; }
+      #triggerSearchBtn { bottom: 50px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 🔝 顶部控制 -->
+  <div class="top-bar">
+    <button id="openColorPanel">色卡</button>
+    <button id="fullscreenBtn">全屏显示</button>
+  </div>
+
+  <!-- ⏰ 时钟 + 中央触发按钮 -->
+  <div class="main-content">
+    <div class="clock-container">
+      <div class="time" id="time">--:--:--</div>
+      <div class="date" id="date">----年--月--日 星期-</div>
+    </div>
+    <button id="triggerSearchBtn">🔍 搜索</button>
+  </div>
+
+  <!-- 🔍 居中搜索面板 -->
+  <div id="bingSearchPanel">
+    <div class="search-box">
+      <input type="text" id="bingQuery" placeholder="在必应中搜索…" autocomplete="off" />
+      <button onclick="performSearch()">搜索</button>
+    </div>
+  </div>
+
+  <!-- 🎨 色卡面板 -->
+  <div id="colorPanel">
+    <div class="panel-header">
+      <h3>背景色卡</h3>
+      <button class="close-btn" id="closeColorPanel">×</button>
+    </div>
+    <div class="color-presets" id="presetColors"></div>
+    <div class="custom-input">
+      <input type="text" id="customColor" placeholder="#1661ab" maxlength="7" />
+      <button onclick="applyCustomColor()">应用</button>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_BG = "#1661ab";
+    let isSearchOpen = false;
+
+    // 🔍 搜索逻辑
+    function performSearch() {
+      const q = document.getElementById('bingQuery').value.trim();
+      if (q) {
+        window.open(`https://www.bing.com/search?q=${encodeURIComponent(q)}`, '_blank');
+        closeSearch();
+      }
+    }
+    function openSearch() {
+      document.getElementById('bingSearchPanel').classList.add('active');
+      document.getElementById('bingQuery').focus();
+      isSearchOpen = true;
+    }
+    function closeSearch() {
+      document.getElementById('bingSearchPanel').classList.remove('active');
+      document.getElementById('bingQuery').value = '';
+      isSearchOpen = false;
+    }
+
+    // 🎨 背景色 & 色卡
+    function restoreBackgroundColor() {
+      const saved = localStorage.getItem('savedBgColor') || DEFAULT_BG;
+      document.body.style.backgroundColor = saved;
+    }
+    function applyColor(hex) {
+      document.body.style.backgroundColor = hex;
+      localStorage.setItem('savedBgColor', hex);
+    }
+    function applyCustomColor() {
+      let hex = document.getElementById('customColor').value.trim();
+      if (!hex.startsWith('#')) hex = '#' + hex;
+      if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+        applyColor(hex);
+      } else {
+        alert('请输入有效的十六进制颜色，如 #1661ab');
+      }
+    }
+    function initColorPresets() {
+      const container = document.getElementById('presetColors');
+      const colors = [
+        { name: "黛蓝", hex: "#1661ab" },
+        { name: "天青", hex: "#70A6B5" },
+        { name: "月白", hex: "#E6F0FA" },
+        { name: "朱砂", hex: "#E34234" },
+        { name: "缃叶", hex: "#C9A972" },
+        { name: "紫檀", hex: "#4C2F27" },
+        { name: "石绿", hex: "#5F8D4E" },
+        { name: "玄黑", hex: "#0A0A0A" }
+      ];
+      container.innerHTML = '';
+      colors.forEach(color => {
+        const dot = document.createElement('div');
+        dot.className = 'color-dot';
+        dot.style.backgroundColor = color.hex;
+        dot.title = color.name;
+        dot.onclick = () => applyColor(color.hex);
+        container.appendChild(dot);
+      });
+    }
+
+    // ⏱️ 时钟
+    function updateClock() {
+      const now = new Date();
+      const timeStr = [
+        String(now.getHours()).padStart(2, '0'),
+        String(now.getMinutes()).padStart(2, '0'),
+        String(now.getSeconds()).padStart(2, '0')
+      ].join(':');
+      const weekdays = ['日','一','二','三','四','五','六'];
+      const dateStr = `${now.getFullYear()}年${String(now.getMonth()+1).padStart(2,'0')}月${String(now.getDate()).padStart(2,'0')}日 星期${weekdays[now.getDay()]}`;
+      document.getElementById('time').textContent = timeStr;
+      document.getElementById('date').textContent = dateStr;
+    }
+
+    // 🖥️ 全屏
+    function toggleFullscreen() {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+      } else {
+        document.documentElement.requestFullscreen?.() || document.documentElement.webkitRequestFullscreen?.();
+      }
+    }
+    function updateFullscreenButton() {
+      document.getElementById('fullscreenBtn').textContent = 
+        (document.fullscreenElement || document.webkitFullscreenElement) ? '退出全屏' : '全屏显示';
+    }
+
+    // 🎨 色卡面板
+    function openColorPanel() { document.getElementById('colorPanel').classList.add('active'); }
+    function closeColorPanel() { document.getElementById('colorPanel').classList.remove('active'); }
+
+    // 🚀 初始化
+    restoreBackgroundColor();
+    updateClock();
+    setInterval(updateClock, 1000);
+    initColorPresets();
+
+    // ⌨️ ESC 键：切换搜索面板
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (isSearchOpen) {
+          closeSearch();
+        } else {
+          openSearch(); // 按 ESC 呼出（按需求）
+        }
+      }
+    });
+
+    // 🔘 中央按钮点击
+    document.getElementById('triggerSearchBtn').addEventListener('click', openSearch);
+
+    // 搜索框回车
+    document.getElementById('bingQuery').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') performSearch();
+    });
+
+    // 遮罩点击关闭
+    document.getElementById('bingSearchPanel').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('bingSearchPanel')) {
+        closeSearch();
+      }
+    });
+
+    // 其他按钮绑定
+    document.getElementById('openColorPanel').addEventListener('click', openColorPanel);
+    document.getElementById('closeColorPanel').addEventListener('click', closeColorPanel);
+    document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(e => 
+      document.addEventListener(e, updateFullscreenButton)
+    );
+  </script>
+</body>
+</html>
